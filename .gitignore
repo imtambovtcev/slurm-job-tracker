@@ -1,0 +1,50 @@
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+env/
+venv/
+slurm_env/
+
+# Logs
+*.log
+
+# Test coverage reports
+htmlcov/
+.coverage
+.tox/
+.nox/
+.cache/
+pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Temporary files
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+.DS_Store
+
+# Environment variables
+.env
+
+# IDE settings
+.idea/
+.vscode/
+
+# Build files
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# OS-specific files
+Thumbs.db
+.DS_Store
+
+#pytest cache
+.pytest_cache/
