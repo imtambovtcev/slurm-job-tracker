@@ -1,9 +1,11 @@
-from .utils import setup_logging
-from .tracker import SlurmJobTracker
-from .server import run_server
-from .config import debug_token
-import threading
 import logging
+import threading
+
+from .config import debug_token
+from .server import run_server
+from .tracker import SlurmJobTracker
+from .utils import setup_logging
+
 
 def main():
     """Main function to start the Slurm Job Tracker and HTTP server."""

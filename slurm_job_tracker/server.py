@@ -1,12 +1,11 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import logging
 import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from .config import SERVER_HOST, SERVER_PORT, SECRET_TOKEN
+from .config import SECRET_TOKEN, SERVER_HOST, SERVER_PORT, mask_token
 from .tracker import SlurmJobTracker
 
-from .config import SECRET_TOKEN, mask_token
 
 class CommandHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Slurm Job Tracker commands."""

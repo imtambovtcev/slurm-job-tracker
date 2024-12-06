@@ -1,8 +1,9 @@
-import requests
 import json
 import logging
 
-from .config import SERVER_HOST, SERVER_PORT, SECRET_TOKEN
+import requests
+
+from .config import SECRET_TOKEN, SERVER_HOST, SERVER_PORT
 
 
 class SlurmJobTrackerClient:

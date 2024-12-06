@@ -48,3 +48,7 @@ Thumbs.db
 
 #pytest cache
 .pytest_cache/
+
+# history files
+slurm_jobs_current.json
+slurm_jobs_history.json
