@@ -25,7 +25,7 @@ class SlurmJobTrackerClient:
             logging.error(f"Error communicating with server: {e}")
             return None
 
-    def submit_task(self, working_dir, script_name="submit_gpaw_alec.sh"):
+    def submit_task(self, working_dir, script_name="submit.sh"):
         """Submit a new task to the job tracker."""
         command = {
             "command": "submit_task",

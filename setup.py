@@ -2,9 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name="slurm-job-tracker",
-    version="1.0.0",
+    version="1.0.1",
     author="Ivan Tambovtsev",
-    author_email="your_email@example.com",
+    author_email="imtambovtcev@gmail.com",
     description="A tool for tracking and managing Slurm jobs with an HTTP server",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -18,6 +18,7 @@ setup(
     entry_points={
         "console_scripts": [
             "slurm-job-tracker=slurm_job_tracker.main:main",
+            "slurm-client=slurm_job_tracker.cli:main",
         ],
     },
     classifiers=[
