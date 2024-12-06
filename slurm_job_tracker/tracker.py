@@ -1,18 +1,16 @@
-import subprocess
-import json
 import datetime
-import time
-import threading
-from queue import Queue
+import json
 import logging
+import os
+import subprocess
+import threading
+import time
+from queue import Queue
 
-from .config import (
-    TRACKER_INTERVAL,
-    HISTORY_FILE,
-    CURRENT_FILE,
-    MAX_JOBS,
-)
+from .config import CURRENT_FILE, HISTORY_FILE, MAX_JOBS, TRACKER_INTERVAL
 from .utils import setup_logging
+
+from datetime import timedelta
 
 
 class SlurmJobTracker:
@@ -73,43 +71,70 @@ class SlurmJobTracker:
             logging.error(f"Error saving current data: {e}")
 
     def get_current_jobs(self):
-        """Retrieve current running jobs from Slurm."""
+        """Retrieve current running jobs from Slurm using standard library."""
         try:
-            output = subprocess.check_output(
-                "squeue -u $USER | awk '{print $1}'", shell=True
-            ).decode("utf-8").split("\n")[1:]
+            # Capture the squeue output
+            output = subprocess.check_output(["squeue", "-u", os.getenv("USER")]).decode("utf-8")
+            
+            # Parse the header and rows
+            lines = output.strip().split("\n")
+            if len(lines) < 2:
+                logging.warning("No jobs found in squeue output.")
+                return []
 
-            output_time = subprocess.check_output(
-                "squeue -u $USER | awk '{print $7}'", shell=True
-            ).decode("utf-8").split("\n")[1:]
-
-            current_time = datetime.datetime.now()
-            jobs = [
-                (
-                    job_id,
-                    (
-                        current_time
-                        - datetime.timedelta(seconds=self.time_to_seconds(start_time))
-                    ).strftime('%Y-%m-%d %H:%M:%S'),
-                )
-                for job_id, start_time in zip(output, output_time)
-                if len(job_id) > 0
-            ]
-            return jobs
+            header, *rows = lines
+            header_columns = header.split()
+            time_index = header_columns.index("TIME")
+            job_id_index = header_columns.index("JOBID")
+            
+            # Extract job IDs and their corresponding run times
+            current_jobs = []
+            for row in rows:
+                columns = row.split()
+                job_id = columns[job_id_index]
+                start_time = columns[time_index] if len(columns) > time_index else ""
+                
+                # Ensure the time format is valid
+                if start_time.strip():
+                    current_time = datetime.datetime.now()
+                    start_time_seconds = self.time_to_seconds(start_time)
+                    start_timestamp = (current_time - datetime.timedelta(seconds=start_time_seconds)).strftime('%Y-%m-%d %H:%M:%S')
+                    current_jobs.append((job_id, start_timestamp))
+                else:
+                    logging.warning(f"Missing time for job {job_id}, skipping.")
+            
+            return current_jobs
         except subprocess.CalledProcessError as e:
             logging.error(f"Error retrieving current jobs: {e}")
             return []
+        except ValueError as e:
+            logging.error(f"Error parsing squeue output: {e}")
+            return []
+
 
     @staticmethod
     def time_to_seconds(time_str):
-        """Convert time string to seconds."""
-        parts = time_str.split(":")
-        if len(parts) == 3:
-            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-        elif len(parts) == 2:
-            return int(parts[0]) * 60 + int(parts[1])
-        else:
-            return int(parts[0])
+        """Convert time string to seconds, supporting days."""
+        try:
+            if "-" in time_str:
+                days, time_part = time_str.split("-")
+                days_in_seconds = int(days) * 86400  # 86400 seconds in a day
+            else:
+                time_part = time_str
+                days_in_seconds = 0
+            
+            parts = time_part.split(":")
+            if len(parts) == 3:
+                hours, minutes, seconds = map(int, parts)
+                return days_in_seconds + hours * 3600 + minutes * 60 + seconds
+            elif len(parts) == 2:
+                hours, minutes = map(int, parts)
+                return days_in_seconds + hours * 3600 + minutes * 60
+            else:
+                return days_in_seconds + int(parts[0])
+        except ValueError as e:
+            logging.error(f"Error parsing time string '{time_str}': {e}")
+            return 0
 
     def find_job_file(self, job_id):
         """Find the output file associated with a job ID."""
@@ -125,24 +150,58 @@ class SlurmJobTracker:
         except subprocess.CalledProcessError:
             return "Unknown"
 
-    def submit_task(self, working_dir, script_name="submit_gpaw_alec.sh"):
+    def submit_task(self, working_dir, script_name="submit.sh"):
         """Add a task to the submission queue."""
         self.submission_queue.put((working_dir, script_name))
         logging.info(f"Task queued: {script_name} in {working_dir}")
 
     def process_submission_queue(self, running_jobs_count):
         """Process the submission queue and submit jobs."""
-        while not self.submission_queue.empty() and running_jobs_count < self.max_jobs:
+        initial_queue_size = self.submission_queue.qsize()
+
+        # Log the current queue status
+        logging.info(f"Processing submission queue: {initial_queue_size} tasks in the queue.")
+
+        tasks_processed = 0  # Tracks how many tasks were actually processed
+
+        while not self.submission_queue.empty():
+            if running_jobs_count >= self.max_jobs:
+                logging.info(f"Maximum job limit reached ({self.max_jobs}).")
+                break
+
             working_dir, script_name = self.submission_queue.get()
+
+            if not os.path.exists(working_dir):
+                logging.error(f"Working directory does not exist: {working_dir}")
+                continue
+
+            script_path = os.path.join(working_dir, script_name)
+            if not os.path.isfile(script_path):
+                logging.error(f"Script not found: {script_path}")
+                continue
+
             try:
-                logging.info(f"Submitting task: {script_name} in {working_dir}")
-                subprocess.run(
-                    ["sbatch", script_name], cwd=working_dir, check=True
+                logging.info(f"Submitting task: {script_name} from {working_dir}")
+                result = subprocess.run(
+                    ["sbatch", script_name],
+                    cwd=working_dir,
+                    check=True,
+                    capture_output=True,
+                    text=True
                 )
+                logging.info(f"Task submitted successfully: {result.stdout.strip()}")
                 running_jobs_count += 1
+                tasks_processed += 1
             except subprocess.CalledProcessError as e:
-                logging.error(f"Error submitting task {script_name} in {working_dir}: {e}")
-        return running_jobs_count
+                logging.error(f"Failed to submit task {script_name} from {working_dir}: {e.stderr.strip() if e.stderr else str(e)}")
+            except Exception as e:
+                logging.error(f"Unexpected error while submitting task {script_name} from {working_dir}: {e}")
+
+        # Calculate the number of tasks remaining in the queue
+        remaining_tasks = self.submission_queue.qsize()
+        logging.info(f"Submission queue processing complete. {remaining_tasks} tasks remain in the queue. {tasks_processed} tasks processed.")
+
+        return remaining_tasks
 
     def handle_command(self, command):
         """Handle incoming commands from the server."""
@@ -152,19 +211,31 @@ class SlurmJobTracker:
                 working_dir = args.get('working_dir')
                 script_name = args.get('script_name', 'submit_gpaw_alec.sh')
                 self.submit_task(working_dir, script_name)
-                return {'status': 'Task submitted'}
+                return {'status': 'Task added to queue'}
+
             elif command['command'] == 'get_status':
                 return {'running_jobs': list(self.old_job_dict.keys())}
+
+            elif command['command'] == 'get_queue':
+                queue_contents = list(self.submission_queue.queue)  # Convert queue to a list
+                return {
+                    'status': 'Queue retrieved',
+                    'queued_tasks': [
+                        {'working_dir': task[0], 'script_name': task[1]}
+                        for task in queue_contents
+                    ]
+                }
+
             else:
                 return {'status': 'Unknown command'}
+
 
     def track_jobs(self):
         """Main loop to track jobs."""
         while True:
             job_dict = {'timestamp': str(datetime.datetime.now()), 'jobs': {}}
             current_jobs = self.get_current_jobs()
-
-            logging.info('-----\nNow running:\n-----')
+            running_string = ''
             for job_id, start_time in current_jobs:
                 if job_id in self.old_job_dict:
                     job_file = self.old_job_dict[job_id].get('output_file', "Unknown")
@@ -176,8 +247,8 @@ class SlurmJobTracker:
                     'start_time': start_time,
                     'output_file': job_file
                 }
-                logging.info(f'{job_id} - {start_time} -> {job_file}')
-
+                running_string += f'{job_id} - {start_time} -> {job_file}\n'
+            logging.info('\n-----Now running:-----\n' + running_string + '\n-----------------------')
             self.save_current(job_dict)
 
             current_job_ids = set(job_dict['jobs'].keys())
@@ -202,6 +273,10 @@ class SlurmJobTracker:
             self.old_job_dict = job_dict['jobs']
 
             running_jobs_count = len(current_job_ids)
-            running_jobs_count = self.process_submission_queue(running_jobs_count)
+            queued_tasks = self.process_submission_queue(running_jobs_count)
+
+            if queued_tasks > 0:
+                logging.info(f"{queued_tasks} tasks queued, waiting for job slots to free up.")
 
             time.sleep(self.interval)
+

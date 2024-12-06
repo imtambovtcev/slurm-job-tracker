@@ -6,19 +6,35 @@ import threading
 from .config import SERVER_HOST, SERVER_PORT, SECRET_TOKEN
 from .tracker import SlurmJobTracker
 
+from .config import SECRET_TOKEN, mask_token
 
 class CommandHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Slurm Job Tracker commands."""
 
     def do_POST(self):
-        # Verify the Authorization header if a secret token is set
-        if SECRET_TOKEN:
-            auth_header = self.headers.get('Authorization')
-            if auth_header != f"Bearer {SECRET_TOKEN}":
-                self.send_response(401)  # Unauthorized
-                self.end_headers()
-                self.wfile.write(b"Unauthorized")
-                return
+        # Debug: Check the incoming headers
+        masked_headers = {key: (f"Bearer {mask_token(value.split()[-1])}" if key == "Authorization" else value) 
+                        for key, value in self.headers.items()}
+        logging.info(f"Received headers (masked): {masked_headers}")
+
+        # Check the Authorization header
+        auth_header = self.headers.get('Authorization')
+        masked_auth_header = f"Bearer {mask_token(auth_header.split()[-1])}" if auth_header else "None"
+        logging.info(f"Authorization header received (masked): {masked_auth_header}")
+
+        if not SECRET_TOKEN:
+            logging.error("SECRET_TOKEN is not set on the server!")
+            self.send_response(500)  # Internal Server Error
+            self.end_headers()
+            self.wfile.write(b"Server misconfigured: SECRET_TOKEN is not set.")
+            return
+
+        if not auth_header or auth_header != f"Bearer {SECRET_TOKEN}":
+            logging.warning("Unauthorized access attempt detected!")
+            self.send_response(401)  # Unauthorized
+            self.end_headers()
+            self.wfile.write(b"Unauthorized")
+            return
 
         # Process incoming command
         content_length = int(self.headers['Content-Length'])
@@ -34,13 +50,6 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"Invalid JSON")
 
-    def log_message(self, format, *args):
-        # Override to use logging instead of printing to stderr
-        logging.info("%s - - [%s] %s" % (
-            self.client_address[0],
-            self.log_date_time_string(),
-            format % args,
-        ))
 
 
 class ThreadedHTTPServer(HTTPServer):

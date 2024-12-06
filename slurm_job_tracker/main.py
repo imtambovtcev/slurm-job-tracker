@@ -1,12 +1,14 @@
 from .utils import setup_logging
 from .tracker import SlurmJobTracker
 from .server import run_server
+from .config import debug_token
 import threading
 import logging
 
 def main():
     """Main function to start the Slurm Job Tracker and HTTP server."""
     setup_logging()
+    debug_token()
     tracker = SlurmJobTracker()
     server_thread = threading.Thread(target=run_server, args=(tracker,))
     server_thread.daemon = True  # Ensures the server thread exits with the main thread
