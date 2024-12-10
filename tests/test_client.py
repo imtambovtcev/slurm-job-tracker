@@ -1,5 +1,8 @@
-import pytest
+import os
 from unittest.mock import patch
+
+import pytest
+
 from slurm_job_tracker.client import SlurmJobTrackerClient
 
 
@@ -7,9 +10,12 @@ from slurm_job_tracker.client import SlurmJobTrackerClient
 def test_submit_task(mock_post):
     """Test submitting a task to the server."""
     mock_post.return_value.status_code = 200
-    mock_post.return_value.json.return_value = {"status": "Task added to queue"}
+    mock_post.return_value.json.return_value = {
+        "status": "Task added to queue"}
 
-    client = SlurmJobTrackerClient(server_host="127.0.0.1", server_port=8000, secret_token="test_token")
+    test_token = os.getenv("SLURM_TRACKER_TOKEN")
+    client = SlurmJobTrackerClient(
+        server_host="127.0.0.1", server_port=8000, secret_token=test_token)
     response = client.submit_task("/test", "script.sh")
 
     assert response == {"status": "Task added to queue"}
@@ -23,14 +29,16 @@ def test_submit_task(mock_post):
     )
 
 
-
 @patch("slurm_job_tracker.client.requests.post")
 def test_get_status(mock_post):
     """Test getting the status of running jobs."""
     mock_post.return_value.status_code = 200
-    mock_post.return_value.json.return_value = {"running_jobs": ["job1", "job2"]}
+    mock_post.return_value.json.return_value = {
+        "running_jobs": ["job1", "job2"]}
 
-    client = SlurmJobTrackerClient(server_host="127.0.0.1", server_port=8000, secret_token="test_token")
+    test_token = os.getenv("SLURM_TRACKER_TOKEN")
+    client = SlurmJobTrackerClient(
+        server_host="127.0.0.1", server_port=8000, secret_token=test_token)
     response = client.get_status()
 
     assert response == {"running_jobs": ["job1", "job2"]}
@@ -42,6 +50,7 @@ def test_get_status(mock_post):
         },
         data='{"command": "get_status"}'
     )
+
 
 @patch("slurm_job_tracker.client.requests.post")
 def test_get_queue(mock_post):
@@ -55,7 +64,9 @@ def test_get_queue(mock_post):
         ]
     }
 
-    client = SlurmJobTrackerClient(server_host="127.0.0.1", server_port=8000, secret_token="test_token")
+    test_token = os.getenv("SLURM_TRACKER_TOKEN")
+    client = SlurmJobTrackerClient(
+        server_host="127.0.0.1", server_port=8000, secret_token=test_token)
     response = client.get_queue()
 
     assert response == {
