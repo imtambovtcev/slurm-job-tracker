@@ -334,10 +334,10 @@ class SlurmJobTracker:
             # Log finished jobs
             for job_id in finished_jobs:
                 self.completed_jobs[job_id] = {
-                    'start_time': self.job_files[job_id]['start_time'],
-                    'end_time': job_dict['timestamp'],
-                    'directory': self.job_files[job_id]['directory'],
-                    'filename': self.job_files[job_id]['filename'],
+                    'start_time': self.job_files[job_id].get('start_time', None),
+                    'end_time': job_dict.get('timestamp', None),
+                    'directory': self.job_files[job_id].get('directory', None),
+                    'filename': self.job_files[job_id].get('filename', None),
                     'nodelist': self.job_files[job_id].get('nodelist', None)
                 }
                 logging.info(f"Job finished: {job_id}")
