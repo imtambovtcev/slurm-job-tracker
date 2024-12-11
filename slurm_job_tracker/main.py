@@ -8,6 +8,13 @@ from .utils import setup_logging
 
 
 def main():
+    """
+    Main function to start the Slurm Job Tracker and HTTP server.
+
+    This function sets up logging, loads the debug token, initializes the SlurmJobTracker,
+    and starts the HTTP server in a separate daemon thread. It then starts tracking jobs
+    and handles graceful shutdown on a keyboard interrupt.
+    """
     """Main function to start the Slurm Job Tracker and HTTP server."""
     setup_logging()
     debug_token()
@@ -20,6 +27,7 @@ def main():
         tracker.track_jobs()
     except KeyboardInterrupt:
         logging.info("Shutting down Slurm Job Tracker.")
+
 
 if __name__ == "__main__":
     main()

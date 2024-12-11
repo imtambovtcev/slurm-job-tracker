@@ -1,12 +1,14 @@
 import pytest
+
 from slurm_job_tracker import SlurmJobTracker
-from slurm_job_tracker.config import TRACKER_INTERVAL, MAX_JOBS
+from slurm_job_tracker.config import MAX_JOBS, TRACKER_INTERVAL
 
 
 @pytest.fixture
 def tracker():
     """Fixture to initialize a SlurmJobTracker instance."""
     return SlurmJobTracker()
+
 
 def test_initialization(tracker):
     """Test that the tracker initializes correctly."""

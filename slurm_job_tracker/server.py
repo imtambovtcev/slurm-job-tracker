@@ -8,18 +8,32 @@ from .tracker import SlurmJobTracker
 
 
 class CommandHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for Slurm Job Tracker commands."""
+    """
+    CommandHandler is an HTTP request handler for Slurm Job Tracker commands.
+
+    Methods:
+        do_POST(self):
+            Handles POST requests to the server. It checks the Authorization header,
+            processes incoming commands, and returns appropriate responses.
+
+            - Logs received headers with masked Authorization token.
+            - Verifies the presence and correctness of the SECRET_TOKEN.
+            - Responds with 500 if SECRET_TOKEN is not set.
+            - Responds with 401 if the Authorization header is missing or incorrect.
+            - Processes the incoming command if authorized and returns the response.
+            - Responds with 400 if the incoming data is not valid JSON.
+    """
 
     def do_POST(self):
-        # Debug: Check the incoming headers
-        masked_headers = {key: (f"Bearer {mask_token(value.split()[-1])}" if key == "Authorization" else value) 
-                        for key, value in self.headers.items()}
+        masked_headers = {key: (f"Bearer {mask_token(value.split()[-1])}" if key == "Authorization" else value)
+                          for key, value in self.headers.items()}
         logging.info(f"Received headers (masked): {masked_headers}")
 
         # Check the Authorization header
         auth_header = self.headers.get('Authorization')
         masked_auth_header = f"Bearer {mask_token(auth_header.split()[-1])}" if auth_header else "None"
-        logging.info(f"Authorization header received (masked): {masked_auth_header}")
+        logging.info(
+            f"Authorization header received (masked): {masked_auth_header}")
 
         if not SECRET_TOKEN:
             logging.error("SECRET_TOKEN is not set on the server!")
@@ -48,7 +62,6 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.send_response(400)  # Bad Request
             self.end_headers()
             self.wfile.write(b"Invalid JSON")
-
 
 
 class ThreadedHTTPServer(HTTPServer):
