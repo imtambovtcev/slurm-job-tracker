@@ -41,6 +41,7 @@ class SlurmJobTracker:
         handle_command(command): Handles incoming commands from the server.
         track_jobs(): Main loop to track jobs.
         is_slurm_reason(reason): Checks if the string from NODELIST(REASON) is a Slurm reason or a node name.
+        get_info(): Retrieves information about the tracker's current state.
     """
 
     def __init__(self):
@@ -263,28 +264,63 @@ class SlurmJobTracker:
 
         return remaining_tasks
 
+    def get_info(self):
+        """Get information about the tracker's current state."""
+        return {
+            'status': 'OK',
+            'timestamp': str(datetime.datetime.now()),
+            'max_jobs': self.max_jobs,
+            'interval': self.interval,
+            'running_jobs_count': len(self.job_files),
+            'completed_jobs_count': len(self.completed_jobs),
+            'queued_tasks_count': self.submission_queue.qsize()
+        }
+
     def handle_command(self, command):
         """Handle incoming commands from the server."""
+        logging.info(f"Handling command: {command}")
         with self.lock:
             if command['command'] == 'submit_task':
                 args = command.get('args', {})
                 working_dir = args.get('working_dir')
                 script_name = args.get('script_name', 'submit_gpaw_alec.sh')
                 self.submit_task(working_dir, script_name)
-                return {'status': 'Task added to queue'}
+                response= {
+                    'status': 'Task submitted',
+                    'timestamp': str(datetime.datetime.now()),
+                    'working_dir': working_dir,
+                    'script_name': script_name
+                }
+                logging.debug(f"response: {response}")
+                return response
 
             elif command['command'] == 'get_status':
-                return {'running_jobs': list(self.job_files.keys())}
+                response = {
+                    'status': 'Status retrieved',
+                    'timestamp': str(datetime.datetime.now()),
+                    'running_jobs': self.job_files,
+                    'completed_jobs': self.completed_jobs
+                }
+                logging.debug(f"response: {response}")
+                return response
 
             elif command['command'] == 'get_queue':
                 queue_contents = list(self.submission_queue.queue)
-                return {
+                response = {
                     'status': 'Queue retrieved',
+                    'timestamp': str(datetime.datetime.now()),
                     'queued_tasks': [
                         {'working_dir': task[0], 'script_name': task[1]}
                         for task in queue_contents
                     ]
                 }
+                logging.debug(f"response: {response}")
+                return response
+
+            elif command['command'] == 'get_info':
+                response = self.get_info()
+                logging.debug(f"response: {response}")
+                return response
 
             else:
                 return {'status': 'Unknown command'}

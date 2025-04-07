@@ -52,4 +52,85 @@ def test_server_submit_task(server):
 
     response = requests.post(url, json=command, headers=headers)
     assert response.status_code == 200
-    assert response.json() == {"status": "Task added to queue"}
+    response = response.json()
+    assert response["status"] == "Task submitted"
+
+
+def test_server_get_status(server):
+    """Test the server's get_status API."""
+    server_port = server.server_address[1]
+    url = f"http://127.0.0.1:{server_port}"
+    command = {
+        "command": "get_status"
+    }
+
+    test_token = os.getenv("SLURM_TRACKER_TOKEN", "")
+    headers = {"Authorization": f"Bearer {test_token}"}
+
+    response = requests.post(url, json=command, headers=headers)
+    assert response.status_code == 200
+    response = response.json()
+    assert response["status"] == "Status retrieved"
+    assert "timestamp" in response
+    assert "running_jobs" in response
+    assert "completed_jobs" in response
+
+
+def test_server_get_queue(server):
+    """Test the server's get_queue API."""
+    server_port = server.server_address[1]
+    url = f"http://127.0.0.1:{server_port}"
+    command = {
+        "command": "get_queue"
+    }
+
+    test_token = os.getenv("SLURM_TRACKER_TOKEN", "")
+    headers = {"Authorization": f"Bearer {test_token}"}
+
+    response = requests.post(url, json=command, headers=headers)
+    assert response.status_code == 200
+    response = response.json()
+    assert response["status"] == "Queue retrieved"
+    assert "timestamp" in response
+    assert "queued_tasks" in response
+    assert isinstance(response["queued_tasks"], list)
+
+
+def test_server_get_info(server):
+    """Test the server's get_info API."""
+    server_port = server.server_address[1]
+    url = f"http://127.0.0.1:{server_port}"
+    command = {
+        "command": "get_info"
+    }
+
+    test_token = os.getenv("SLURM_TRACKER_TOKEN", "")
+    headers = {"Authorization": f"Bearer {test_token}"}
+
+    response = requests.post(url, json=command, headers=headers)
+    assert response.status_code == 200
+    response = response.json()
+    assert response["status"] == "OK"
+    assert "timestamp" in response
+    assert "max_jobs" in response
+    assert "interval" in response
+    assert "running_jobs_count" in response
+    assert "completed_jobs_count" in response
+    assert "queued_tasks_count" in response
+
+
+def test_server_unknown_command(server):
+    """Test the server's response to an unknown command."""
+    server_port = server.server_address[1]
+    url = f"http://127.0.0.1:{server_port}"
+    command = {
+        "command": "invalid_command"
+    }
+
+    test_token = os.getenv("SLURM_TRACKER_TOKEN", "")
+    headers = {"Authorization": f"Bearer {test_token}"}
+
+    response = requests.post(url, json=command, headers=headers)
+    assert response.status_code == 200
+    response = response.json()
+    assert response["status"] == "Unknown command"

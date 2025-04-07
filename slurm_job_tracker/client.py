@@ -42,3 +42,8 @@ class SlurmJobTrackerClient:
         """Retrieve the list of tasks in the submission queue."""
         command = {"command": "get_queue"}
         return self.send_command(command)
+    
+    def get_info(self):
+        """Retrieve information about the job tracker."""
+        command = {"command": "get_info"}
+        return self.send_command(command)

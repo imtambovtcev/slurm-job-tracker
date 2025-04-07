@@ -3,7 +3,7 @@ from slurm_job_tracker.client import SlurmJobTrackerClient
 
 def main():
     parser = argparse.ArgumentParser(description="Slurm Job Tracker Client")
-    parser.add_argument("command", choices=["submit", "status", "queue"], help="Command to execute")
+    parser.add_argument("command", choices=["submit", "status", "queue", "info"], help="Command to execute")
     parser.add_argument("--working-dir", help="Working directory for task submission")
     parser.add_argument("--script-name", default="submit.sh", help="Submission script name (default: submit.sh)")
     args = parser.parse_args()
@@ -24,3 +24,9 @@ def main():
     elif args.command == "queue":
         response = client.get_queue()
         print("Queue:", response)
+
+    elif args.command == "info":
+        response = client.get_info()
+        print("Info:", response)
+        
+    return  # Ensure the function properly exits

@@ -54,7 +54,15 @@ class CommandHandler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         try:
             command = json.loads(post_data)
+            logging.info(f"Received command: {command}")
             response = self.server.tracker.handle_command(command)
+            logging.info(f"Response: {response}")
+            if response is None:
+                self.send_response(400)  # Bad Request
+                self.end_headers()
+                self.wfile.write(b"Invalid command")
+                return
+            
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
